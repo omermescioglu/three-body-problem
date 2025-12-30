@@ -1,0 +1,456 @@
+# This code has two parts. The first is a 2D simulation of the trajectories of 3 bodies in space,
+# calculated using either Forward Euler's method or Runge-Kutta 2 (RK2). The second part creates  
+# plots of the calculated relative energy drift values for each method, showing that RK2 does a
+# better job of keeping the total energy of the system constant than Forward Euler's method.
+
+# code ran on RStudio 2024.12.1.563, MacOS Sequioa 15.6.1
+
+# Initialize starting values
+set.seed(1) # <---- delete  line if you want different orbits every run
+G  = 6.6743 * 10^-11
+M1  = 5.97 * 10^27
+M2  = 5.97 * 10^27
+M3 = 5.97 * 10^27
+posx1  = 0       # <-# 3 bodies originally positioned in equilateral triangle. Feel free to change. 
+posy1  = 0       # <-# 3 bodies originally positioned in equilateral triangle. Feel free to change. 
+posx2  = 1.5e9   # <-# 3 bodies originally positioned in equilateral triangle. Feel free to change. 
+posy2  = 0       # <-# 3 bodies originally positioned in equilateral triangle. Feel free to change. 
+posx3 = 7.5e8    # <-# 3 bodies originally positioned in equilateral triangle. Feel free to change. 
+posy3 = 1.3e9    # <-# 3 bodies originally positioned in equilateral triangle. Feel free to change. 
+velx1 = runif(n = 1, min = -1e4, max = 1e4)
+vely1 = runif(n = 1, min = -1e4, max = 1e4)
+velx2 = runif(n = 1, min = -1e4, max = 1e4)
+vely2 = runif(n = 1, min = -1e4, max = 1e4)
+velx3 = runif(n = 1, min = -1e4, max = 1e4)
+vely3 = runif(n = 1, min = -1e4, max = 1e4)
+dt  = 10
+n_steps = 25000
+vel_scale = 12e3
+
+time  = vector(length = n_steps)
+time[1] = 0
+
+#########################################################################################################
+
+# Euler's method and RK2 computations
+euler <- function(n_steps, G, M1, M2, M3, posx1, posx2, posx3, posy1, posy2, posy3,
+                  velx1, velx2, velx3, vely1, vely2, vely3, dt, time) {
+  
+  pos1  <-  matrix(NA, n_steps, 2)
+  pos2  <-  matrix(NA, n_steps, 2)
+  pos3 <- matrix(NA, n_steps, 2)
+  r12  =  matrix(NA, n_steps, 2)
+  r21 = matrix(NA, n_steps, 2)
+  r13 = matrix(NA, n_steps, 2)
+  r31 = matrix(NA, n_steps, 2)
+  r23 = matrix(NA, n_steps, 2)
+  r32 = matrix(NA, n_steps, 2)
+  d12  = numeric(n_steps)
+  d13 = numeric(n_steps)
+  d23 = numeric(n_steps)
+  v1  =  matrix(NA, n_steps, 2)
+  v2  =  matrix(NA, n_steps, 2)
+  v3 = matrix(NA, n_steps, 2)
+  a12 =  matrix(NA, n_steps, 2)
+  a21 =  matrix(NA, n_steps, 2)
+  a13 =  matrix(NA, n_steps, 2)
+  a31 =  matrix(NA, n_steps, 2)
+  a23 =  matrix(NA, n_steps, 2)
+  a32 =  matrix(NA, n_steps, 2)
+  d_initial12 = sqrt((posx2  - posx1)^2 + (posy2  - posy1)^2)
+  d_initial13 = sqrt((posx1 - posx3)^2 + (posy1 - posy3)^2)
+  d_initial23 = sqrt((posx2 - posx3)^2 + (posy2 - posy3)^2)
+  
+  pos1[1, ] <- c(posx1 , posy1)
+  pos2[1, ] <- c(posx2 , posy2)
+  pos3[1, ] <- c(posx3, posy3)
+  d12[1] <- d_initial12
+  d13[1] <- d_initial13
+  d23[1] <- d_initial23
+  v1[1, ] <- c(velx1, vely1)
+  v2[1, ] <- c(velx2, vely2)
+  v3[1, ] <- c(velx3, vely3)
+  r12[1, ] <- pos2[1, ] - pos1[1, ]
+  r21[1, ] <- pos1[1, ] - pos2[1, ]
+  r13[1, ] <- pos3[1, ] - pos1[1, ]
+  r31[1, ] <- pos1[1, ] - pos3[1, ]
+  r23[1, ] <- pos3[1, ] - pos2[1, ]
+  r32[1, ] <- pos2[1, ] - pos3[1, ]
+  a12[1, ] = (G * M2 * r12[1, ] / d12[1]^3)
+  a21[1, ] = (G * M1 * r21[1, ] / d12[1]^3)
+  a13[1, ] = (G * M3 * r13[1, ] / d13[1]^3)
+  a31[1, ] = (G * M1 * r31[1, ] / d13[1]^3)
+  a23[1, ] = (G * M3 * r23[1, ] / d23[1]^3)
+  a32[1, ] = (G * M2 * r32[1, ] / d23[1]^3)
+  
+  for (i in 2:n_steps) {
+    a12[i-1, ] = (G * M2 * r12[i - 1, ] / d12[i -1]^3)
+    a21[i-1, ] = (G * M1 * r21[i - 1, ] / d12[i -1]^3)
+    a13[i-1, ] = (G * M3 * r13[i - 1, ] / d13[i - 1]^3)
+    a31[i-1, ] = (G * M1 * r31[i - 1, ] / d13[i - 1]^3)
+    a23[i-1, ] = (G * M3 * r23[i - 1, ] / d23[i - 1]^3)
+    a32[i-1, ] = (G * M2 * r32[i - 1, ] / d23[i - 1]^3)
+    
+    v1[i, ] = v1[i - 1, ] + (a12[i - 1, ] + a13[i-1, ]) * dt 
+    v2[i, ] = v2[i - 1, ] + (a21[i - 1, ] + a23[i-1, ]) * dt 
+    v3[i, ] = v3[i - 1, ] + (a31[i - 1, ] + a32[i-1, ]) * dt 
+    
+    pos1[i, ] = pos1[i - 1, ] + v1[i - 1, ] * dt 
+    pos2[i, ] = pos2[i - 1, ] + v2[i - 1, ] * dt 
+    pos3[i, ] = pos3[i - 1, ] + v3[i - 1, ] * dt 
+    
+    r12[i, ] <- pos2[i, ] - pos1[i, ]
+    r21[i, ] <- pos1[i, ] - pos2[i, ]
+    r13[i, ] <- pos3[i, ] - pos1[i, ]
+    r31[i, ] <- pos1[i, ] - pos3[i, ]
+    r23[i, ] <- pos3[i, ] - pos2[i, ]
+    r32[i, ] <- pos2[i, ] - pos3[i, ]
+    d12[i] <- sqrt(sum(r12[i, ]^2))
+    d13[i] <- sqrt(sum(r13[i, ]^2))
+    d23[i] <- sqrt(sum(r23[i, ]^2))
+    time[i] = time[i - 1] + dt 
+  }
+  
+  return(list(
+    x1  = pos1[, 1],
+    y1  = pos1[, 2],
+    x2  = pos2[, 1],
+    y2  = pos2[, 2],
+    x3  = pos3[, 1],
+    y3  = pos3[, 2],
+    v1 = v1, 
+    v2 = v2, 
+    v3 = v3,
+    d12 = d12,
+    d13 = d13,
+    d23 = d23
+    ))
+}
+
+euler_result <- euler(n_steps, G, M1, M2, M3, posx1, posx2, posx3, posy1, posy2, posy3,
+                      velx1, velx2, velx3, vely1, vely2, vely3, dt, time)
+
+rk2 <- function(n_steps, G, M1, M2, M3, posx1, posx2, posx3, posy1, posy2, posy3,
+                velx1, velx2, velx3, vely1, vely2, vely3, dt, time) {
+  rk2_pos1 <- matrix(NA, n_steps, 2)
+  rk2_pos2 <- matrix(NA, n_steps, 2)
+  rk2_pos3 <- matrix(NA, n_steps, 2)
+  rk2_r12 = matrix(NA, n_steps, 2)
+  rk2_r21 = matrix(NA, n_steps, 2)
+  rk2_r13 = matrix(NA, n_steps, 2)
+  rk2_r31 = matrix(NA, n_steps, 2)
+  rk2_r23 = matrix(NA, n_steps, 2)
+  rk2_r32 = matrix(NA, n_steps, 2)
+  rk2_v1 = matrix(NA, n_steps, 2)
+  rk2_v2 = matrix(NA, n_steps, 2)
+  rk2_v3 = matrix(NA, n_steps, 2)
+  rk2_a12 =  matrix(NA, n_steps, 2)
+  rk2_a21 =  matrix(NA, n_steps, 2)
+  rk2_a13 =  matrix(NA, n_steps, 2)
+  rk2_a31 =  matrix(NA, n_steps, 2)
+  rk2_a23 =  matrix(NA, n_steps, 2)
+  rk2_a32 =  matrix(NA, n_steps, 2)
+  rk2_d12 = numeric(n_steps)
+  rk2_d13 = numeric(n_steps)
+  rk2_d23 = numeric(n_steps)
+  d_initial12 = sqrt((posx2  - posx1)^2 + (posy2  - posy1)^2)
+  d_initial13 = sqrt((posx1 - posx3)^2 + (posy1 - posy3)^2)
+  d_initial23 = sqrt((posx2 - posx3)^2 + (posy2 - posy3)^2)
+  
+  rk2_pos1[1, ] <- c(posx1 , posy1)
+  rk2_pos2[1, ] <- c(posx2 , posy2)
+  rk2_pos3[1, ] <- c(posx3, posy3)
+  rk2_r12[1, ] <- rk2_pos2[1, ] - rk2_pos1[1, ]
+  rk2_r21[1, ] <- rk2_pos1[1, ] - rk2_pos2[1, ]
+  rk2_r13[1, ] <- rk2_pos3[1, ] - rk2_pos1[1, ]
+  rk2_r31[1, ] <- rk2_pos1[1, ] - rk2_pos3[1, ]
+  rk2_r23[1, ] <- rk2_pos3[1, ] - rk2_pos2[1, ]
+  rk2_r32[1, ] <- rk2_pos2[1, ] - rk2_pos3[1, ]
+  rk2_v1[1, ] <- c(velx1, vely1)
+  rk2_v2[1, ] <- c(velx2, vely2)
+  rk2_v3[1, ] <- c(velx3, vely3)
+  rk2_d12[1] <- d_initial12
+  rk2_d13[1] <- d_initial13
+  rk2_d23[1] <- d_initial23
+ 
+  pos1_half = matrix(NA, n_steps, 2)
+  pos2_half = matrix(NA, n_steps, 2)
+  pos3_half = matrix(NA, n_steps, 2)
+  r12_half =  matrix(NA, n_steps, 2)
+  r21_half = matrix(NA, n_steps, 2)
+  r13_half = matrix(NA, n_steps, 2)
+  r31_half = matrix(NA, n_steps, 2)
+  r23_half = matrix(NA, n_steps, 2)
+  r32_half = matrix(NA, n_steps, 2)
+  d12_half = numeric(n_steps)
+  d13_half = numeric(n_steps)
+  d23_half = numeric(n_steps)
+  v1_half  =  matrix(NA, n_steps, 2)
+  v2_half  =  matrix(NA, n_steps, 2)
+  v3_half  =  matrix(NA, n_steps, 2)
+  a12_half =  matrix(NA, n_steps, 2)
+  a21_half =  matrix(NA, n_steps, 2)
+  a13_half =  matrix(NA, n_steps, 2)
+  a31_half =  matrix(NA, n_steps, 2)
+  a23_half =  matrix(NA, n_steps, 2)
+  a32_half =  matrix(NA, n_steps, 2)
+  
+  pos1_half[1, ] <- c(posx1 , posy1)
+  pos2_half[1, ] <- c(posx2 , posy2)
+  pos3_half[1, ] <- c(posx3 , posy3)
+  r12_half[1, ] <- rk2_pos2[1, ] - rk2_pos1[1, ]
+  r21_half[1, ] <- rk2_pos1[1, ] - rk2_pos2[1, ]
+  r13_half[1, ] <- rk2_pos3[1, ] - rk2_pos1[1, ]
+  r31_half[1, ] <- rk2_pos1[1, ] - rk2_pos3[1, ]
+  r23_half[1, ] <- rk2_pos3[1, ] - rk2_pos2[1, ]
+  r32_half[1, ] <- rk2_pos2[1, ] - rk2_pos3[1, ]
+  d12_half[1] <- d_initial12
+  d13_half[1] <- d_initial13
+  d23_half[1] <- d_initial23
+  v1_half[1, ] <- c(velx1, vely1)
+  v2_half[1, ] <- c(velx2, vely2)
+  v3_half[1, ] <- c(velx3, vely3)
+  
+  for (i in 2:n_steps) {
+    
+    rk2_r12[i-1, ] = rk2_pos2[i-1, ] - rk2_pos1[i-1, ]
+    rk2_r21[i-1, ] = rk2_pos1[i-1, ] - rk2_pos2[i-1, ]
+    rk2_r13[i-1, ] = rk2_pos3[i-1, ] - rk2_pos1[i-1, ]
+    rk2_r31[i-1, ] = rk2_pos1[i-1, ] - rk2_pos3[i-1, ]
+    rk2_r23[i-1, ] = rk2_pos3[i-1, ] - rk2_pos2[i-1, ]
+    rk2_r32[i-1, ] = rk2_pos2[i-1, ] - rk2_pos3[i-1, ]
+    rk2_d12[i-1] = sqrt(sum(rk2_r12[i-1, ]^2))
+    rk2_d13[i-1] = sqrt(sum(rk2_r13[i-1, ]^2))
+    rk2_d23[i-1] = sqrt(sum(rk2_r23[i-1, ]^2))
+    
+    rk2_a12[i-1, ] = G * M2 * rk2_r12[i-1, ] / rk2_d12[i-1]^3
+    rk2_a21[i-1, ] = G * M1 * rk2_r21[i-1, ] / rk2_d12[i-1]^3
+    rk2_a13[i-1, ] = G * M3 * rk2_r13[i-1, ] / rk2_d13[i-1]^3
+    rk2_a31[i-1, ] = G * M1 * rk2_r31[i-1, ] / rk2_d13[i-1]^3
+    rk2_a23[i-1, ] = G * M3 * rk2_r23[i-1, ] / rk2_d23[i-1]^3
+    rk2_a32[i-1, ] = G * M2 * rk2_r32[i-1, ] / rk2_d23[i-1]^3
+    
+    # half-point calculations
+    pos1_half[i, ] = rk2_pos1[i-1, ] + 0.5 * rk2_v1[i-1, ] * dt
+    pos2_half[i, ] = rk2_pos2[i-1, ] + 0.5 * rk2_v2[i-1, ] * dt
+    pos3_half[i, ] = rk2_pos3[i-1, ] + 0.5 * rk2_v3[i-1, ] * dt
+    
+    r12_half[i, ] = pos2_half[i, ] - pos1_half[i, ]
+    r21_half[i, ] = pos1_half[i, ] - pos2_half[i, ]
+    r13_half[i, ] = pos3_half[i, ] - pos1_half[i, ]
+    r31_half[i, ] = pos1_half[i, ] - pos3_half[i, ]
+    r23_half[i, ] = pos3_half[i, ] - pos2_half[i, ]
+    r32_half[i, ] = pos2_half[i, ] - pos3_half[i, ]
+    d12_half[i] = sqrt(sum(r12_half[i, ]^2))
+    d13_half[i] = sqrt(sum(r13_half[i, ]^2))
+    d23_half[i] = sqrt(sum(r23_half[i, ]^2))
+    
+    v1_half[i, ] = rk2_v1[i-1, ] + 0.5 * ((rk2_a12[i-1, ] + rk2_a13[i-1, ])) * dt
+    v2_half[i, ] = rk2_v2[i-1, ] + 0.5 * ((rk2_a21[i-1, ] + rk2_a23[i-1, ])) * dt
+    v3_half[i, ] = rk2_v3[i-1, ] + 0.5 * ((rk2_a31[i-1, ] + rk2_a32[i-1, ])) * dt
+    
+    a12_half[i, ] = (G * M2 * r12_half[i, ] / d12_half[i]^3)
+    a21_half[i, ] = (G * M1 * r21_half[i, ] / d12_half[i]^3)
+    a13_half[i, ] = (G * M3 * r13_half[i, ] / d13_half[i]^3)
+    a31_half[i, ] = (G * M1 * r31_half[i, ] / d13_half[i]^3)
+    a23_half[i, ] = (G * M3 * r23_half[i, ] / d23_half[i]^3)
+    a32_half[i, ] = (G * M2 * r32_half[i, ] / d23_half[i]^3)
+    
+    # advance states using half-points
+    rk2_pos1[i, ] = rk2_pos1[i-1, ] + v1_half[i, ] * dt
+    rk2_pos2[i, ] = rk2_pos2[i-1, ] + v2_half[i, ] * dt
+    rk2_pos3[i, ] = rk2_pos3[i-1, ] + v3_half[i, ] * dt
+    
+    rk2_v1[i, ] = rk2_v1[i-1, ] + (a12_half[i, ] + a13_half[i, ]) * dt
+    rk2_v2[i, ] = rk2_v2[i-1, ] + (a21_half[i, ] + a23_half[i, ]) * dt
+    rk2_v3[i, ] = rk2_v3[i-1, ] + (a31_half[i, ] + a32_half[i, ]) * dt
+  
+  }
+  
+  #last value is not filled through loop
+  rk2_d12[n_steps] = rk2_d12[n_steps - 1] 
+  rk2_d13[n_steps] = rk2_d13[n_steps - 1]
+  rk2_d23[n_steps] = rk2_d23[n_steps - 1]
+  
+  
+  return(list(
+    rk2_x1 = rk2_pos1[, 1],
+    rk2_y1 = rk2_pos1[, 2],
+    rk2_x2 = rk2_pos2[, 1],
+    rk2_y2 = rk2_pos2[, 2],
+    rk2_x3 = rk2_pos3[, 1],
+    rk2_y3 = rk2_pos3[, 2],
+    rk2_v1 = rk2_v1,
+    rk2_v2 = rk2_v2,
+    rk2_v3 = rk2_v3,
+    rk2_d12 = rk2_d12,
+    rk2_d13 = rk2_d13,
+    rk2_d23 = rk2_d23
+    ))
+}
+rk2_result <- rk2(n_steps, G, M1, M2, M3, posx1, posx2, posx3, posy1, posy2, posy3,
+                  velx1, velx2, velx3, vely1, vely2, vely3, dt, time)
+
+##########################################################################################################
+
+# Euler's method and RK2 simulation prep
+euler_simulation <- function(euler_result) {
+  quartz()
+  for (i in seq_along(euler_result$x1)) {
+    plot(NA, NA,
+         xlim = range(c(min(euler_result$x1, euler_result$x2, euler_result$x3), max(euler_result$x1, euler_result$x2, euler_result$x3))), 
+         ylim = range(c(min(euler_result$y1, euler_result$y2, euler_result$y3), max(euler_result$y1, euler_result$y2, euler_result$y3))), 
+         asp=1,
+         xlab='x', ylab='y',
+         main=paste('Euler Three Body System', '\n', 'step:', i))
+    points(euler_result$x1[i], euler_result$y1[i], pch=19, cex=3, col='red')
+    points(euler_result$x2[i], euler_result$y2[i], pch=19, cex=3, col='blue')
+    points(euler_result$x3[i], euler_result$y3[i], pch=19, cex=3, col='green')
+  
+    legend(
+      "topright",
+      legend = c(paste("Body 1 v:", round(sqrt(sum(euler_result$v1[i, ]^2))), '\n'),
+                 paste("Body 2 v:", round(sqrt(sum(euler_result$v2[i, ]^2))), '\n'),
+                 paste("Body 3 v:", round(sqrt(sum(euler_result$v3[i, ]^2))))),
+      col = c('red', 'blue', 'green'),
+      lwd = 2,
+      pch = 16
+    )
+    
+    arrows(
+      euler_result$x2[i], euler_result$y2[i],
+      euler_result$x2[i] + vel_scale * euler_result$v2[i, ][1],
+      euler_result$y2[i] + vel_scale * euler_result$v2[i, ][2],
+      col='blue',
+      length = 0.1,
+    )
+    
+    arrows(
+      euler_result$x1[i], euler_result$y1[i],
+      euler_result$x1[i] + vel_scale * euler_result$v1[i, ][1],
+      euler_result$y1[i] + vel_scale * euler_result$v1[i, ][2],
+      col='red',
+      length = 0.1,
+    )
+    
+    arrows(
+      euler_result$x3[i], euler_result$y3[i],
+      euler_result$x3[i] + vel_scale * euler_result$v3[i, ][1],
+      euler_result$y3[i] + vel_scale * euler_result$v3[i, ][2],
+      col='green',
+      length = 0.1
+    )
+    
+    Sys.sleep(0.00001)
+  }
+}
+
+rk2_simulation <- function(rk2_result) {
+  quartz()
+  for (i in seq_along(rk2_result$rk2_x1)) {
+    plot(NA, NA,
+         xlim = range(c(min(rk2_result$rk2_x1, rk2_result$rk2_x2, rk2_result$rk2_x3), max(rk2_result$rk2_x1, rk2_result$rk2_x2, rk2_result$rk2_x3))), 
+         ylim = range(c(min(rk2_result$rk2_y1, rk2_result$rk2_y2, rk2_result$rk2_y3), max(rk2_result$rk2_y1, rk2_result$rk2_y2, rk2_result$rk2_y3))), 
+         asp=1,
+         xlab='x', ylab='y',
+         main=paste('RK2 Three Body System', '\n', 'step:', i))
+    points(rk2_result$rk2_x1[i], rk2_result$rk2_y1[i], pch=19, cex=3, col='red')
+    points(rk2_result$rk2_x2[i], rk2_result$rk2_y2[i], pch=19, cex=3, col='blue')
+    points(rk2_result$rk2_x3[i], rk2_result$rk2_y3[i], pch=19, cex=3, col='green')
+    
+    legend(
+      "topright",
+      legend = c(paste("Body 1 v:", round(sqrt(sum(rk2_result$rk2_v1[i, ]^2))), '\n'),
+                 paste("Body 2 v:", round(sqrt(sum(rk2_result$rk2_v2[i, ]^2))), '\n'),
+                 paste("Body 3 v:", round(sqrt(sum(rk2_result$rk2_v3[i, ]^2))))),
+      col = c('red', 'blue', 'green'),
+      lwd = 2,
+      pch = 16
+    )
+    
+    arrows(
+      rk2_result$rk2_x2[i], rk2_result$rk2_y2[i],
+      rk2_result$rk2_x2[i] + vel_scale * rk2_result$rk2_v2[i, ][1],
+      rk2_result$rk2_y2[i] + vel_scale * rk2_result$rk2_v2[i, ][2],
+      col='blue',
+      length = 0.1,
+    )
+    
+    arrows(
+      rk2_result$rk2_x1[i], rk2_result$rk2_y1[i],
+      rk2_result$rk2_x1[i] + vel_scale * rk2_result$rk2_v1[i, ][1],
+      rk2_result$rk2_y1[i] + vel_scale * rk2_result$rk2_v1[i, ][2],
+      col='red',
+      length = 0.1,
+    )
+    
+    arrows(
+      rk2_result$rk2_x3[i], rk2_result$rk2_y3[i],
+      rk2_result$rk2_x3[i] + vel_scale * rk2_result$rk2_v3[i, ][1],
+      rk2_result$rk2_y3[i] + vel_scale * rk2_result$rk2_v3[i, ][2],
+      col='green',
+      length = 0.1
+    )
+    
+    Sys.sleep(0.00001)
+  }
+}
+
+##########################################################################################################
+
+# Euler's method and RK2 3-body simulation
+euler_simulation(euler_result)
+
+rk2_simulation(rk2_result)
+
+##########################################################################################################
+
+# Euler relative energy drift calculation
+KE_1 <- numeric(n_steps)
+KE_2 <- numeric(n_steps)
+KE_3 <- numeric(n_steps)
+PE <- numeric(n_steps)
+
+KE_1 <- 0.5 * M1 * rowSums(euler_result$v1^2)
+KE_2 <- 0.5 * M2 * rowSums(euler_result$v2^2)
+KE_3 <- 0.5 * M3 * rowSums(euler_result$v3^2)
+
+PE = -G * ((M1 * M2 / euler_result$d12) + (M1 * M3 / euler_result$d13) + (M2 * M3 / euler_result$d23))
+E_total = KE_1 + PE + KE_2
+euler_relative_energy_drift = (E_total - E_total[1]) / abs(E_total[1])
+
+##########################################################################################################
+
+# RK2 relative energy drift calculation
+rk2_KE_1 <- numeric(n_steps)
+rk2_KE_2 <- numeric(n_steps)
+rk2_KE_3 <- numeric(n_steps)
+rk2_PE <- numeric(n_steps)
+
+rk2_KE_1 <- 0.5 * M1 * rowSums(rk2_result$rk2_v1^2)
+rk2_KE_2 <- 0.5 * M2 * rowSums(rk2_result$rk2_v2^2)
+rk2_KE_3 <- 0.5 * M2 * rowSums(rk2_result$rk2_v3^2)
+rk2_PE = -(G * ((M1 * M2 / (rk2_result$rk2_d12 + 1)) + 
+                (M1 * M3 / (rk2_result$rk2_d13 + 1)) + 
+                (M2 * M3 / (rk2_result$rk2_d23 + 1))))
+# 1-padding to avoid dividing by zero
+
+rk2_E_total = rk2_KE_1 + rk2_KE_2 + rk2_KE_3 + rk2_PE
+rk2_relative_energy_drift = (rk2_E_total - rk2_E_total[1]) / abs(rk2_E_total[1])
+
+##########################################################################################################
+
+quartz()
+par(mfrow = c(1,2))
+plot(seq(1:n_steps), (euler_relative_energy_drift),
+     cex = 0.45, type = 'l', lty = 2,
+     ylim = c(min(euler_relative_energy_drift), max(euler_relative_energy_drift)),
+     xlab="Step", ylab='Relative Energy Drift',
+     main='Forward Euler')
+plot(seq(1:n_steps), (rk2_relative_energy_drift),
+     cex = 0.45, type = 'l', lty = 2,
+     ylim = c(min(euler_relative_energy_drift), max(euler_relative_energy_drift)),
+     #y-axis scaled to size of Euler energy graph for accurate comparison
+     xlab = "Step", ylab='Relative Energy Drift',
+     main='RK2')
+
