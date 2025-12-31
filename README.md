@@ -8,7 +8,7 @@ $$
 \mathbf{a}_1 = \frac{G M_2 \, \hat{\mathbf{r}}}{d^3}
 $$
 
-Where $\hat{\mathbf{r}}$ is the distance vector defined by $\langle x_1, y_1 \rangle - \langle x_2, y_2 \rangle$, and $d^3$ is the scalar distance cubed. 
+Where $\hat{\mathbf{r}}$ is the distance vector defined by $\langle x_2, y_2 \rangle - \langle x_1, y_1 \rangle$, and $d^3$ is the scalar distance cubed. 
 Using the vector sum of the two accelerations acting upon an object, we can update the velocity in the x and y directions, which then updates position, in turn updating distance between bodies. 
 
 The following GIFs show the performance of the simulations using Forward Euler's method or Runge-Kutta 2. (note: the actual simulation on RStudio runs much smoother) 
