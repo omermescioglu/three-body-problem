@@ -1,5 +1,5 @@
 # Three Body Problem Simulation
-The Three Body Problem refers to the lack of a general closed-form solution for 3 bodies acting on each other through Newton's Law of Gravitation. It also happens to be the name of the show that inspired me to create this simulation of the motion of 3 bodies. :)
+The Three Body Problem refers to the lack of a general closed-form solution for 3 bodies acting on each other through Newton's Law of Gravitation. It also happens to be the name of the show that inspired me to create this simulation. :)
 
 ### Calculations
 Trajectories of objects were calculated using Newton's Universal Law of Gravitation $F = G \dfrac{M_1 M_2}{r^2}$. Simplifying for acceleration and including a directional term returns:
